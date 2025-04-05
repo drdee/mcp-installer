@@ -30,6 +30,16 @@ GSUITE_INSTALL_DIR="$HOME/mcp-gsuite"
 GSUITE_AUTH_FILE="$GSUITE_INSTALL_DIR/.gauth.json"
 GSUITE_ACCOUNTS_FILE="$GSUITE_INSTALL_DIR/.accounts.json"
 
+# Atlassian MCP server configuration
+ATLASSIAN_REPO="https://github.com/sooperset/mcp-atlassian.git"
+ATLASSIAN_INSTALL_DIR="$HOME/mcp-atlassian"
+ATLASSIAN_ENV_FILE="$ATLASSIAN_INSTALL_DIR/.env"
+
+# Notion MCP server configuration
+NOTION_REPO="https://github.com/suekou/mcp-notion-server.git"
+NOTION_INSTALL_DIR="$HOME/mcp-notion-server"
+NOTION_ENV_FILE="$NOTION_INSTALL_DIR/.env"
+
 # ====== Logging Function ======
 log_message() {
     echo "$(date +"%Y-%m-%d %H:%M:%S"): $1" | tee -a "$LOG_FILE"
@@ -411,6 +421,30 @@ if [ "$OP_AVAILABLE" = true ]; then
         GMAIL_CLIENT_ID=""
         GMAIL_CLIENT_SECRET=""
     fi
+
+    # Get Atlassian credentials
+    JIRA_URL=$(get_1password_item "Atlassian" "url")
+    JIRA_USERNAME=$(get_1password_item "Atlassian" "username")
+    JIRA_TOKEN=$(get_1password_item "Atlassian" "token")
+
+    if [ -n "$JIRA_URL" ] && [ -n "$JIRA_TOKEN" ]; then
+        log_message "Retrieved Atlassian credentials successfully"
+    else
+        log_message "Could not retrieve Atlassian credentials. Empty placeholders will be used."
+        JIRA_URL=""
+        JIRA_USERNAME=""
+        JIRA_TOKEN=""
+    fi
+
+    # Get Notion credentials
+    NOTION_TOKEN=$(get_1password_item "Notion" "token")
+
+    if [ -n "$NOTION_TOKEN" ]; then
+        log_message "Retrieved Notion token successfully"
+    else
+        log_message "Could not retrieve Notion token. Empty placeholder will be used."
+        NOTION_TOKEN=""
+    fi
 else
     # Set placeholders if 1Password is not available
     FIRECRAWL_API_KEY=""
@@ -421,6 +455,10 @@ else
     SLACK_TEAM_ID=""
     GMAIL_CLIENT_ID=""
     GMAIL_CLIENT_SECRET=""
+    JIRA_URL=""
+    JIRA_USERNAME=""
+    JIRA_TOKEN=""
+    NOTION_TOKEN=""
 fi
 
 # ====== Install NVM if needed ======
@@ -681,6 +719,95 @@ CREDEOF
     fi
 fi
 
+# Install Atlassian MCP Server from GitHub using uv
+log_message "Installing Atlassian MCP Server from GitHub using uv..."
+
+# Clone the repository
+if [ -d "$ATLASSIAN_INSTALL_DIR" ]; then
+    log_message "Atlassian MCP Server directory already exists, updating..."
+    cd "$ATLASSIAN_INSTALL_DIR"
+    git pull
+else
+    log_message "Cloning Atlassian MCP Server repository..."
+    git clone "$ATLASSIAN_REPO" "$ATLASSIAN_INSTALL_DIR"
+    if [ $? -ne 0 ]; then
+        log_message "Error: Failed to clone Atlassian MCP Server repository"
+    else
+        log_message "Atlassian MCP Server repository cloned successfully"
+        cd "$ATLASSIAN_INSTALL_DIR"
+    fi
+fi
+
+# Build using uv
+if [ -d "$ATLASSIAN_INSTALL_DIR" ]; then
+    log_message "Building Atlassian MCP Server using uv..."
+    cd "$ATLASSIAN_INSTALL_DIR"
+    
+    # Create .env file with Atlassian credentials
+    log_message "Creating .env file with Atlassian credentials..."
+    cat > "$ATLASSIAN_ENV_FILE" << ATLASSIANENVEOF
+JIRA_URL="$JIRA_URL"
+JIRA_USERNAME="$JIRA_USERNAME"
+JIRA_TOKEN="$JIRA_TOKEN"
+ATLASSIANENVEOF
+
+    log_message "Atlassian .env file created at $ATLASSIAN_ENV_FILE"
+    
+    # Install dependencies using uv
+    uv build
+
+    if [ $? -ne 0 ]; then
+        log_message "Error: Failed to build Atlassian MCP Server using uv"
+    else
+        log_message "Atlassian MCP Server built successfully using uv"
+    fi
+fi
+
+# Install Notion MCP Server from GitHub
+log_message "Installing Notion MCP Server from GitHub..."
+
+# Clone the repository
+if [ -d "$NOTION_INSTALL_DIR" ]; then
+    log_message "Notion MCP Server directory already exists, updating..."
+    cd "$NOTION_INSTALL_DIR"
+    git pull
+else
+    log_message "Cloning Notion MCP Server repository..."
+    git clone "$NOTION_REPO" "$NOTION_INSTALL_DIR"
+    if [ $? -ne 0 ]; then
+        log_message "Error: Failed to clone Notion MCP Server repository"
+    else
+        log_message "Notion MCP Server repository cloned successfully"
+        cd "$NOTION_INSTALL_DIR"
+    fi
+fi
+
+# Set up Notion MCP Server
+if [ -d "$NOTION_INSTALL_DIR" ]; then
+    log_message "Setting up Notion MCP Server..."
+    cd "$NOTION_INSTALL_DIR"
+    
+    # Create .env file with Notion token
+    log_message "Creating .env file with Notion token..."
+    cat > "$NOTION_ENV_FILE" << NOTIONENVEOF
+NOTION_API_TOKEN="$NOTION_TOKEN"
+NOTIONENVEOF
+
+    log_message "Notion .env file created at $NOTION_ENV_FILE"
+    
+    # Install dependencies (these will be handled by npx when running)
+    log_message "Notion MCP Server is ready to be run with npx"
+fi
+
+# Determine the absolute path to uv
+UV_PATH=$(which uv 2>/dev/null)
+if [ -z "$UV_PATH" ]; then
+    log_message "Warning: Could not find uv in PATH. Using 'uv' as command which may not work if it's not in PATH."
+    UV_PATH="uv"
+else
+    log_message "Found uv at: $UV_PATH"
+fi
+
 # Create a directory for the Claude Desktop configuration
 mkdir -p "$MCP_CONFIG_DIR"
 
@@ -720,7 +847,7 @@ cat > "$MCP_CONFIG_FILE" << EOF
       }
     },
     "zendesk": {
-      "command": "/Users/dvanliere/.local/bin/uv",
+      "command": "$UV_PATH",
       "args": [
         "run",
         "--directory",
@@ -729,7 +856,7 @@ cat > "$MCP_CONFIG_FILE" << EOF
       ]
     },
     "gmail": {
-      "command": "/Users/dvanliere/.local/bin/uv",
+      "command": "$UV_PATH",
       "args": [
         "run",
         "--directory",
@@ -742,6 +869,31 @@ cat > "$MCP_CONFIG_FILE" << EOF
         "--credentials-file",
         "$GSUITE_INSTALL_DIR"
       ]
+    },
+    "atlassian": {
+      "command": "$UV_PATH",
+      "args": [
+        "run",
+        "--directory",
+        "$ATLASSIAN_INSTALL_DIR",
+        "mcp-atlassian",
+        "--jira-url",
+        "$JIRA_URL",
+        "--jira-username",
+        "$JIRA_USERNAME",
+        "--jira-token",
+        "$JIRA_TOKEN"
+      ]
+    },
+    "notion": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@suekou/mcp-notion-server"
+      ],
+      "env": {
+        "NOTION_API_TOKEN": "$NOTION_TOKEN"
+      }
     }
   }
 }
@@ -772,6 +924,10 @@ log_message "Zendesk MCP Server: $([ -d "$ZENDESK_INSTALL_DIR" ] && echo "Instal
 log_message "Zendesk .env file: $([ -f "$ZENDESK_ENV_FILE" ] && echo "Created at $ZENDESK_ENV_FILE" || echo "Not created")"
 log_message "Gmail MCP Server: $([ -d "$GSUITE_INSTALL_DIR" ] && echo "Installed at $GSUITE_INSTALL_DIR" || echo "Not found")"
 log_message "Gmail auth files: $([ -f "$GSUITE_AUTH_FILE" ] && echo "Created at $GSUITE_AUTH_FILE" || echo "Not created")"
+log_message "Atlassian MCP Server: $([ -d "$ATLASSIAN_INSTALL_DIR" ] && echo "Installed at $ATLASSIAN_INSTALL_DIR" || echo "Not found")"
+log_message "Atlassian .env file: $([ -f "$ATLASSIAN_ENV_FILE" ] && echo "Created at $ATLASSIAN_ENV_FILE" || echo "Not created")"
+log_message "Notion MCP Server: $([ -d "$NOTION_INSTALL_DIR" ] && echo "Installed at $NOTION_INSTALL_DIR" || echo "Not found")"
+log_message "Notion .env file: $([ -f "$NOTION_ENV_FILE" ] && echo "Created at $NOTION_ENV_FILE" || echo "Not created")"
 log_message "Claude Desktop config: $MCP_CONFIG_FILE"
 log_message "Credentials retrieved from 1Password: $([ "$OP_AVAILABLE" = true ] && echo 'Yes' || echo 'No')"
 log_message "======================================================================="
