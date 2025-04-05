@@ -282,20 +282,10 @@ Remember to keep your tokens secure and never share them publicly.
 
 1. Download the script to your local machine
    ```bash
-   curl -o mcp.sh https://path/to/mcp.sh
+   curl -s https://raw.githubusercontent.com/drdee/mcp-installer/refs/heads/main/mcp.sh | bash
    ```
 
-2. Make the script executable
-   ```bash
-   chmod +x mcp.sh
-   ```
-
-3. Run the script
-   ```bash
-   ./mcp.sh
-   ```
-
-4. The script will:
+2. The script will:
    - Install or update Homebrew
    - Install Python 3.12+ and uv
    - Install Node.js v23+ via NVM
@@ -304,7 +294,7 @@ Remember to keep your tokens secure and never share them publicly.
    - Install and configure all MCP servers
    - Create the necessary configuration files
 
-5. Review the installation summary at the end for any warnings or issues
+3. Review the installation summary at the end for any warnings or issues
 
 ### Log File
 
