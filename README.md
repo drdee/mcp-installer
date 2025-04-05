@@ -203,7 +203,7 @@ This section provides detailed instructions on how to obtain API tokens and cred
 5. Select the appropriate scopes based on your needs
 6. Click "Create Key"
 7. Copy the generated auth token (it will only be shown once)
-8. Add the token to your 1Password vault with item name "Sentry" and field names "auth_token" and "organization" (your Sentry organization slug)
+8. Add the token to your 1Password vault with item name "Sentry" and field names "auth_token", "project" and "organization" (your Sentry organization slug)
 
 ### Datadog
 

@@ -43,7 +43,7 @@ NOTION_INSTALL_DIR="$HOME/mcp-notion-server"
 NOTION_ENV_FILE="$NOTION_INSTALL_DIR/.env"
 
 # Figma MCP server configuration
-FIGMA_PACKAGE_NAME="GLips/figma-developer-mcp"
+FIGMA_PACKAGE_NAME="figma-developer-mcp"
 
 # Sentry MCP server configuration
 SENTRY_REPO="https://github.com/MCP-100/mcp-sentry"
@@ -51,7 +51,7 @@ SENTRY_INSTALL_DIR="$HOME/sentry-mcp"
 SENTRY_ENV_FILE="$SENTRY_INSTALL_DIR/.env"
 
 # Datadog MCP server configuration
-DATADOG_PACKAGE_NAME="winor30/mcp-server-datadog"
+DATADOG_PACKAGE_NAME="@winor30/mcp-server-datadog"
 
 # ====== Logging Function ======
 log_message() {
@@ -897,12 +897,14 @@ if [ "$CURSOR_INSTALLED" = true ]; then
         "run",
         "--directory",
         "$SENTRY_INSTALL_DIR",
-        "mcp-sentry"
-      ],
-      "env": {
-        "SENTRY_AUTH_TOKEN": "$SENTRY_AUTH_TOKEN",
-        "SENTRY_ORGANIZATION": "$SENTRY_ORGANIZATION"
-      }
+        "mcp-sentry",
+        "--auth-token",
+        "$SENTRY_AUTH_TOKEN",
+        "--organization-slug",
+        "$SENTRY_ORGANIZATION",
+        "--project-slug",
+        "$SENTRY_PROJECT"
+      ]
     },
     "datadog": {
       "command": "npx",
