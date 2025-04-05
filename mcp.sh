@@ -14,10 +14,13 @@ NODE_MIN_VERSION="23"
 PYTHON_MIN_VERSION="3.12"
 MCP_CONFIG_DIR="$HOME/Library/Application Support/Claude"
 MCP_CONFIG_FILE="$MCP_CONFIG_DIR/claude_desktop_config.json"
+CURSOR_CONFIG_DIR="$HOME/.cursor"
+CURSOR_CONFIG_FILE="$CURSOR_CONFIG_DIR/mcp.json"
 OP_VAULT="MCP"  # The name of the 1Password vault containing MCP credentials
 CLAUDE_DESKTOP_URL="https://claude.ai/download"
 CLAUDE_DOWNLOAD_DIR="$HOME/Downloads"
 CLAUDE_APP_PATH="/Applications/Claude.app"
+CURSOR_APP_PATH="/Applications/Cursor.app"
 
 # Zendesk MCP server configuration
 ZENDESK_REPO="https://github.com/reminia/zendesk-mcp-server.git"
@@ -39,6 +42,9 @@ ATLASSIAN_ENV_FILE="$ATLASSIAN_INSTALL_DIR/.env"
 NOTION_REPO="https://github.com/suekou/mcp-notion-server.git"
 NOTION_INSTALL_DIR="$HOME/mcp-notion-server"
 NOTION_ENV_FILE="$NOTION_INSTALL_DIR/.env"
+
+# Figma MCP server configuration
+FIGMA_PACKAGE_NAME="figma-developer-mcp"
 
 # ====== Logging Function ======
 log_message() {
@@ -445,6 +451,16 @@ if [ "$OP_AVAILABLE" = true ]; then
         log_message "Could not retrieve Notion token. Empty placeholder will be used."
         NOTION_TOKEN=""
     fi
+
+    # Get Figma credentials
+    FIGMA_API_KEY=$(get_1password_item "Figma" "api_key")
+
+    if [ -n "$FIGMA_API_KEY" ]; then
+        log_message "Retrieved Figma API key successfully"
+    else
+        log_message "Could not retrieve Figma API key. Empty placeholder will be used."
+        FIGMA_API_KEY=""
+    fi
 else
     # Set placeholders if 1Password is not available
     FIRECRAWL_API_KEY=""
@@ -459,6 +475,7 @@ else
     JIRA_USERNAME=""
     JIRA_TOKEN=""
     NOTION_TOKEN=""
+    FIGMA_API_KEY=""
 fi
 
 # ====== Install NVM if needed ======
@@ -808,11 +825,21 @@ else
     log_message "Found uv at: $UV_PATH"
 fi
 
-# Create a directory for the Claude Desktop configuration
+# Create directories for the configurations
 mkdir -p "$MCP_CONFIG_DIR"
 
-# ====== Create Claude Desktop configuration ======
-log_message "Creating Claude Desktop configuration..."
+# ====== Check if Cursor is installed ======
+CURSOR_INSTALLED=false
+if [ -d "$CURSOR_APP_PATH" ]; then
+    log_message "Cursor IDE is installed. Will create engineering MCP configuration."
+    mkdir -p "$CURSOR_CONFIG_DIR"
+    CURSOR_INSTALLED=true
+else
+    log_message "Cursor IDE is not installed. Skipping engineering MCP configuration."
+fi
+
+# ====== Create Claude Desktop configuration (Productivity MCPs) ======
+log_message "Creating Claude Desktop configuration for productivity MCP servers..."
 
 cat > "$MCP_CONFIG_FILE" << EOF
 {
@@ -870,6 +897,29 @@ cat > "$MCP_CONFIG_FILE" << EOF
         "$GSUITE_INSTALL_DIR"
       ]
     },
+    "notion": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@suekou/mcp-notion-server"
+      ],
+      "env": {
+        "NOTION_API_TOKEN": "$NOTION_TOKEN"
+      }
+    }
+  }
+}
+EOF
+
+log_message "Claude Desktop productivity MCP configuration created at: $MCP_CONFIG_FILE"
+
+# ====== Create Cursor configuration (Engineering MCPs) if Cursor is installed ======
+if [ "$CURSOR_INSTALLED" = true ]; then
+    log_message "Creating Cursor configuration for engineering MCP servers..."
+    
+    cat > "$CURSOR_CONFIG_FILE" << EOF
+{
+  "mcpServers": {
     "atlassian": {
       "command": "$UV_PATH",
       "args": [
@@ -885,27 +935,36 @@ cat > "$MCP_CONFIG_FILE" << EOF
         "$JIRA_TOKEN"
       ]
     },
-    "notion": {
+    "figma": {
       "command": "npx",
       "args": [
         "-y",
-        "@suekou/mcp-notion-server"
-      ],
-      "env": {
-        "NOTION_API_TOKEN": "$NOTION_TOKEN"
-      }
+        "$FIGMA_PACKAGE_NAME",
+        "--figma-api-key=$FIGMA_API_KEY",
+        "--stdio"
+      ]
     }
   }
 }
 EOF
 
-# Print the configuration to stdout for easy copy-paste
-log_message "Claude Desktop configuration created at: $MCP_CONFIG_FILE"
+    log_message "Cursor engineering MCP configuration created at: $CURSOR_CONFIG_FILE"
+fi
+
+# Print the configurations to stdout for easy copy-paste
 echo ""
 echo "====== Claude Desktop Configuration (claude_desktop_config.json) ======"
 cat "$MCP_CONFIG_FILE"
 echo "======================================================================"
 echo ""
+
+if [ "$CURSOR_INSTALLED" = true ]; then
+    echo "====== Cursor Configuration (mcp.json) ======"
+    cat "$CURSOR_CONFIG_FILE"
+    echo "=============================================="
+    echo ""
+fi
+
 # ====== Final verification ======
 log_message "========================= INSTALLATION SUMMARY ========================="
 log_message "Homebrew: $(which brew)"
@@ -928,7 +987,14 @@ log_message "Atlassian MCP Server: $([ -d "$ATLASSIAN_INSTALL_DIR" ] && echo "In
 log_message "Atlassian .env file: $([ -f "$ATLASSIAN_ENV_FILE" ] && echo "Created at $ATLASSIAN_ENV_FILE" || echo "Not created")"
 log_message "Notion MCP Server: $([ -d "$NOTION_INSTALL_DIR" ] && echo "Installed at $NOTION_INSTALL_DIR" || echo "Not found")"
 log_message "Notion .env file: $([ -f "$NOTION_ENV_FILE" ] && echo "Created at $NOTION_ENV_FILE" || echo "Not created")"
-log_message "Claude Desktop config: $MCP_CONFIG_FILE"
+log_message "Figma MCP Server: Setup for use with npx"
+log_message "Claude Desktop config (productivity MCPs): $MCP_CONFIG_FILE"
+if [ "$CURSOR_INSTALLED" = true ]; then
+    log_message "Cursor IDE: Installed at $CURSOR_APP_PATH"
+    log_message "Cursor config (engineering MCPs): $CURSOR_CONFIG_FILE"
+else
+    log_message "Cursor IDE: Not installed, engineering MCP configuration skipped"
+fi
 log_message "Credentials retrieved from 1Password: $([ "$OP_AVAILABLE" = true ] && echo 'Yes' || echo 'No')"
 log_message "======================================================================="
 log_message "Installation complete!"

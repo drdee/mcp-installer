@@ -1,6 +1,26 @@
 # MCP Server Installation Script
 
-This script automates the installation and configuration of various Model Context Protocol (MCP) servers for use with Claude Desktop. It handles the installation of dependencies (Homebrew, Node.js, Python, uv) and sets up multiple MCP servers.
+This script automates the installation and configuration of various Model Context Protocol (MCP) servers for use with Claude Desktop and Cursor IDE. It handles the installation of dependencies (Homebrew, Node.js, Python, uv) and sets up multiple MCP servers.
+
+## MCP Server Categorization
+
+The script categorizes MCP servers into two groups and configures them in different files:
+
+### Productivity MCPs (Claude Desktop)
+These are configured in `~/Library/Application Support/Claude/claude_desktop_config.json`:
+- Firecrawl
+- Filesystem
+- Slack
+- Zendesk
+- Gmail
+- Notion
+
+### Engineering MCPs (Cursor IDE)
+These are configured in `~/.cursor/mcp.json` (only if Cursor is installed):
+- Atlassian (Jira/Confluence)
+- Figma
+- Sentry (not yet supported)
+- Datadog (not yet supported)
 
 ## Secrets Management
 
@@ -57,6 +77,11 @@ Each MCP server requires specific credentials to be stored in the 1Password `MCP
    - Fields:
      - `token`: Your Notion API token
 
+7. **Figma**
+   - Item name: `Figma`
+   - Fields:
+     - `api_key`: Your Figma API key (Personal Access Token)
+
 ### Manual Configuration
 
 If you don't have 1Password or prefer to configure credentials manually:
@@ -106,8 +131,15 @@ The script logs all operations to `~/Library/Logs/mcp_installation_script.log`. 
 ### After Installation
 
 1. Start Claude Desktop from the Applications folder
-2. The MCP servers will be available for use with Claude
-3. If any credentials were missing, update them in the appropriate `.env` files or in the Claude Desktop configuration
+   - The productivity MCP servers (Firecrawl, Filesystem, Slack, Zendesk, Gmail, Notion) will be available
+
+2. If Cursor IDE is installed, start Cursor
+   - The engineering MCP servers (Atlassian, Figma) will be available in Cursor
+
+3. If any credentials were missing, update them in:
+   - The appropriate `.env` files in each MCP server's directory
+   - The Claude Desktop configuration file at `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - The Cursor configuration file at `~/.cursor/mcp.json` (if Cursor is installed)
 
 ## Troubleshooting
 
