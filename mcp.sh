@@ -703,17 +703,6 @@ log_message "Node.js $NODE_VERSION is being used"
 # ====== Install MCP servers via npm ======
 log_message "Installing MCP servers via npm..."
 
-# Install @smithery/cli first
-log_message "Installing @smithery/cli..."
-npm install -g @smithery/cli
-
-# Check @smithery/cli installation
-if npm list -g @smithery/cli > /dev/null 2>&1; then
-    log_message "@smithery/cli installed successfully"
-else
-    log_message "Warning: @smithery/cli installation may have failed"
-fi
-
 # Install npx-based MCP servers
 install_npx_mcp_server "firecrawl-mcp" "Firecrawl"
 install_npx_mcp_server "@modelcontextprotocol/server-filesystem" "Filesystem"
@@ -938,11 +927,11 @@ fi
 echo ""
 echo "====== Claude Desktop Configuration (claude_desktop_config.json) ======"
 cat "$MCP_CONFIG_FILE"
-echo "======================================================================"
+echo "======================================================================="
 echo ""
 
 if [ "$CURSOR_INSTALLED" = true ]; then
-    echo "====== Cursor Configuration (mcp.json) ======"
+    echo "====== Cursor Configuration (mcp.json) ======="
     cat "$CURSOR_CONFIG_FILE"
     echo "=============================================="
     echo ""
@@ -961,7 +950,6 @@ log_message "Claude Desktop: $([ -d "$CLAUDE_APP_PATH" ] && echo "Installed at $
 log_message "Firecrawl MCP Server: $(npm list -g firecrawl-mcp | grep firecrawl-mcp || echo 'Not found')"
 log_message "Filesystem MCP Server: $(npm list -g @modelcontextprotocol/server-filesystem | grep server-filesystem || echo 'Not found')"
 log_message "Slack MCP Server: $(npm list -g @modelcontextprotocol/server-slack | grep server-slack || echo 'Not found')"
-log_message "@smithery/cli: $(npm list -g @smithery/cli | grep @smithery/cli || echo 'Not found')"
 log_message "Zendesk MCP Server: $([ -d "$ZENDESK_INSTALL_DIR" ] && echo "Installed at $ZENDESK_INSTALL_DIR" || echo "Not found")"
 log_message "Zendesk .env file: $([ -f "$ZENDESK_ENV_FILE" ] && echo "Created at $ZENDESK_ENV_FILE" || echo "Not created")"
 log_message "Gmail MCP Server: $([ -d "$GSUITE_INSTALL_DIR" ] && echo "Installed at $GSUITE_INSTALL_DIR" || echo "Not found")"
@@ -984,10 +972,8 @@ log_message "===================================================================
 log_message "Installation complete!"
 if [ "$OP_AVAILABLE" = false ]; then
     log_message "NOTE: 1Password CLI was not available or properly set up. You will need to manually update the Claude Desktop configuration file with your API tokens and credentials."
-    log_message "You should also update the Zendesk .env file at $ZENDESK_ENV_FILE with your Zendesk credentials."
 else
     log_message "API keys and credentials were retrieved from 1Password and have been added to the Claude Desktop configuration."
-    log_message "Zendesk credentials have been added to $ZENDESK_ENV_FILE"
 fi
 
 if [ -d "$CLAUDE_APP_PATH" ]; then
