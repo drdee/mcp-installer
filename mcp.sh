@@ -39,7 +39,6 @@ ATLASSIAN_INSTALL_DIR="$HOME/mcp-atlassian"
 ATLASSIAN_ENV_FILE="$ATLASSIAN_INSTALL_DIR/.env"
 
 # Notion MCP server configuration
-NOTION_REPO="https://github.com/suekou/mcp-notion-server.git"
 NOTION_INSTALL_DIR="$HOME/mcp-notion-server"
 NOTION_ENV_FILE="$NOTION_INSTALL_DIR/.env"
 
