@@ -19,8 +19,8 @@ These are configured in `~/Library/Application Support/Claude/claude_desktop_con
 These are configured in `~/.cursor/mcp.json` (only if Cursor is installed):
 - Atlassian (Jira/Confluence)
 - Figma
-- Sentry (not yet supported)
-- Datadog (not yet supported)
+- Sentry
+- Datadog
 
 ## Secrets Management
 
@@ -82,6 +82,18 @@ Each MCP server requires specific credentials to be stored in the 1Password `MCP
    - Fields:
      - `api_key`: Your Figma API key (Personal Access Token)
 
+8. **Sentry**
+   - Item name: `Sentry`
+   - Fields:
+     - `auth_token`: Your Sentry authentication token
+     - `organization`: Your Sentry organization slug
+
+9. **Datadog**
+   - Item name: `Datadog`
+   - Fields:
+     - `api_key`: Your Datadog API key
+     - `app_key`: Your Datadog application key
+
 ### Manual Configuration
 
 If you don't have 1Password or prefer to configure credentials manually:
@@ -134,7 +146,7 @@ The script logs all operations to `~/Library/Logs/mcp_installation_script.log`. 
    - The productivity MCP servers (Firecrawl, Filesystem, Slack, Zendesk, Gmail, Notion) will be available
 
 2. If Cursor IDE is installed, start Cursor
-   - The engineering MCP servers (Atlassian, Figma) will be available in Cursor
+   - The engineering MCP servers (Atlassian, Figma, Sentry, Datadog) will be available in Cursor
 
 3. If any credentials were missing, update them in:
    - The appropriate `.env` files in each MCP server's directory

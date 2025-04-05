@@ -46,6 +46,12 @@ NOTION_ENV_FILE="$NOTION_INSTALL_DIR/.env"
 # Figma MCP server configuration
 FIGMA_PACKAGE_NAME="figma-developer-mcp"
 
+# Sentry MCP server configuration
+SENTRY_PACKAGE_NAME="@getsentry/sentry-mcp"
+
+# Datadog MCP server configuration
+DATADOG_PACKAGE_NAME="@winor30/mcp-server-datadog"
+
 # ====== Logging Function ======
 log_message() {
     echo "$(date +"%Y-%m-%d %H:%M:%S"): $1" | tee -a "$LOG_FILE"
@@ -461,6 +467,31 @@ if [ "$OP_AVAILABLE" = true ]; then
         log_message "Could not retrieve Figma API key. Empty placeholder will be used."
         FIGMA_API_KEY=""
     fi
+
+    # Get Sentry credentials
+    SENTRY_AUTH_TOKEN=$(get_1password_item "Sentry" "auth_token")
+    SENTRY_ORGANIZATION=$(get_1password_item "Sentry" "organization")
+
+    if [ -n "$SENTRY_AUTH_TOKEN" ] && [ -n "$SENTRY_ORGANIZATION" ]; then
+        log_message "Retrieved Sentry credentials successfully"
+    else
+        log_message "Could not retrieve Sentry credentials. Empty placeholders will be used."
+        SENTRY_AUTH_TOKEN=""
+        SENTRY_ORGANIZATION=""
+    fi
+
+    # Get Datadog credentials
+    DATADOG_API_KEY=$(get_1password_item "Datadog" "api_key")
+    DATADOG_APP_KEY=$(get_1password_item "Datadog" "app_key")
+    DATADOG_SITE="datadoghq.com"
+
+    if [ -n "$DATADOG_API_KEY" ] && [ -n "$DATADOG_APP_KEY" ]; then
+        log_message "Retrieved Datadog credentials successfully"
+    else
+        log_message "Could not retrieve Datadog credentials. Empty placeholders will be used."
+        DATADOG_API_KEY=""
+        DATADOG_APP_KEY=""
+    fi
 else
     # Set placeholders if 1Password is not available
     FIRECRAWL_API_KEY=""
@@ -476,6 +507,11 @@ else
     JIRA_TOKEN=""
     NOTION_TOKEN=""
     FIGMA_API_KEY=""
+    SENTRY_AUTH_TOKEN=""
+    SENTRY_ORGANIZATION=""
+    DATADOG_API_KEY=""
+    DATADOG_APP_KEY=""
+    DATADOG_SITE="datadoghq.com"  # Default site
 fi
 
 # ====== Install NVM if needed ======
@@ -943,6 +979,29 @@ if [ "$CURSOR_INSTALLED" = true ]; then
         "--figma-api-key=$FIGMA_API_KEY",
         "--stdio"
       ]
+    },
+    "sentry": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "$SENTRY_PACKAGE_NAME"
+      ],
+      "env": {
+        "SENTRY_AUTH_TOKEN": "$SENTRY_AUTH_TOKEN",
+        "SENTRY_ORGANIZATION": "$SENTRY_ORGANIZATION"
+      }
+    },
+    "datadog": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "$DATADOG_PACKAGE_NAME"
+      ],
+      "env": {
+        "DATADOG_API_KEY": "$DATADOG_API_KEY",
+        "DATADOG_APP_KEY": "$DATADOG_APP_KEY",
+        "DATADOG_SITE": "$DATADOG_SITE"
+      }
     }
   }
 }
@@ -987,7 +1046,6 @@ log_message "Atlassian MCP Server: $([ -d "$ATLASSIAN_INSTALL_DIR" ] && echo "In
 log_message "Atlassian .env file: $([ -f "$ATLASSIAN_ENV_FILE" ] && echo "Created at $ATLASSIAN_ENV_FILE" || echo "Not created")"
 log_message "Notion MCP Server: $([ -d "$NOTION_INSTALL_DIR" ] && echo "Installed at $NOTION_INSTALL_DIR" || echo "Not found")"
 log_message "Notion .env file: $([ -f "$NOTION_ENV_FILE" ] && echo "Created at $NOTION_ENV_FILE" || echo "Not created")"
-log_message "Figma MCP Server: Setup for use with npx"
 log_message "Claude Desktop config (productivity MCPs): $MCP_CONFIG_FILE"
 if [ "$CURSOR_INSTALLED" = true ]; then
     log_message "Cursor IDE: Installed at $CURSOR_APP_PATH"
