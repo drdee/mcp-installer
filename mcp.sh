@@ -44,13 +44,15 @@ NOTION_INSTALL_DIR="$HOME/mcp-notion-server"
 NOTION_ENV_FILE="$NOTION_INSTALL_DIR/.env"
 
 # Figma MCP server configuration
-FIGMA_PACKAGE_NAME="figma-developer-mcp"
+FIGMA_PACKAGE_NAME="GLips/figma-developer-mcp"
 
 # Sentry MCP server configuration
-SENTRY_PACKAGE_NAME="@getsentry/sentry-mcp"
+SENTRY_REPO="https://github.com/MCP-100/mcp-sentry"
+SENTRY_INSTALL_DIR="$HOME/sentry-mcp"
+SENTRY_ENV_FILE="$SENTRY_INSTALL_DIR/.env"
 
 # Datadog MCP server configuration
-DATADOG_PACKAGE_NAME="@winor30/mcp-server-datadog"
+DATADOG_PACKAGE_NAME="winor30/mcp-server-datadog"
 
 # ====== Logging Function ======
 log_message() {
@@ -124,6 +126,77 @@ get_1password_item() {
 
     echo "$result"
     return 0
+}
+
+# Function to install an npx-based MCP server
+install_npx_mcp_server() {
+    local package_name="$1"
+    local server_name="$2"
+    
+    log_message "Installing $server_name MCP Server..."
+    
+    npm install -g "$package_name"
+    
+    # Check installation
+    if npm list -g "$package_name" > /dev/null 2>&1; then
+        log_message "$server_name MCP Server installed successfully"
+    else
+        log_message "Warning: $server_name MCP Server installation may have failed"
+    fi
+}
+
+# Function to install a uv-based MCP server from GitHub
+install_uv_mcp_server() {
+    local repo_url="$1"
+    local install_dir="$2"
+    local server_name="$3"
+    local env_file="$4"
+    local env_content="$5"
+    
+    log_message "Installing $server_name MCP Server from GitHub using uv..."
+
+    # Clone the repository
+    if [ -d "$install_dir" ]; then
+        log_message "$server_name MCP Server directory already exists, updating..."
+        cd "$install_dir"
+        git pull
+    else
+        log_message "Cloning $server_name MCP Server repository..."
+        git clone "$repo_url" "$install_dir"
+        if [ $? -ne 0 ]; then
+            log_message "Error: Failed to clone $server_name MCP Server repository"
+            return 1
+        else
+            log_message "$server_name MCP Server repository cloned successfully"
+            cd "$install_dir"
+        fi
+    fi
+
+    # Build using uv
+    if [ -d "$install_dir" ]; then
+        log_message "Building $server_name MCP Server using uv..."
+        cd "$install_dir"
+        
+        # Create .env file if content is provided
+        if [ -n "$env_file" ] && [ -n "$env_content" ]; then
+            log_message "Creating .env file with $server_name credentials..."
+            echo "$env_content" > "$env_file"
+            log_message "$server_name .env file created at $env_file"
+        fi
+        
+        # Install dependencies using uv
+        uv build
+
+        if [ $? -ne 0 ]; then
+            log_message "Error: Failed to build $server_name MCP Server using uv"
+            return 1
+        else
+            log_message "$server_name MCP Server built successfully using uv"
+            return 0
+        fi
+    fi
+    
+    return 1
 }
 
 # Function to download and install Claude Desktop
@@ -642,114 +715,36 @@ else
     log_message "Warning: @smithery/cli installation may have failed"
 fi
 
-# Install Firecrawl MCP Server
-log_message "Installing Firecrawl MCP Server from GitHub..."
-npm install -g firecrawl-mcp
+# Install npx-based MCP servers
+install_npx_mcp_server "firecrawl-mcp" "Firecrawl"
+install_npx_mcp_server "@modelcontextprotocol/server-filesystem" "Filesystem"
+install_npx_mcp_server "@modelcontextprotocol/server-slack" "Slack"
+install_npx_mcp_server "@winor30/mcp-server-datadog" "Datadog"
+install_npx_mcp_server "figma-developer-mcp" "Figma"
+install_npx_mcp_server "@suekou/mcp-notion-server" "Notion"
 
-# Check Firecrawl MCP Server installation
-if npm list -g firecrawl-mcp > /dev/null 2>&1; then
-    log_message "Firecrawl MCP Server installed successfully"
-else
-    log_message "Warning: Firecrawl MCP Server installation may have failed"
-fi
-
-# Install Filesystem MCP Server
-log_message "Installing Filesystem MCP Server..."
-npm install -g @modelcontextprotocol/server-filesystem
-
-# Check Filesystem MCP Server installation
-if npm list -g @modelcontextprotocol/server-filesystem > /dev/null 2>&1; then
-    log_message "Filesystem MCP Server installed successfully"
-else
-    log_message "Warning: Filesystem MCP Server installation may have failed"
-fi
-
-# Install Slack MCP Server
-log_message "Installing Slack MCP Server..."
-npm install -g @modelcontextprotocol/server-slack
-
-# Check Slack MCP Server installation
-if npm list -g @modelcontextprotocol/server-slack > /dev/null 2>&1; then
-    log_message "Slack MCP Server installed successfully"
-else
-    log_message "Warning: Slack MCP Server installation may have failed"
-fi
-
-# Install Zendesk MCP Server from GitHub
-log_message "Installing Zendesk MCP Server from GitHub..."
-
-# Clone the repository
-if [ -d "$ZENDESK_INSTALL_DIR" ]; then
-    log_message "Zendesk MCP Server directory already exists, updating..."
-    cd "$ZENDESK_INSTALL_DIR"
-    git pull
-else
-    log_message "Cloning Zendesk MCP Server repository..."
-    git clone "$ZENDESK_REPO" "$ZENDESK_INSTALL_DIR"
-    if [ $? -ne 0 ]; then
-        log_message "Error: Failed to clone Zendesk MCP Server repository"
-    else
-        log_message "Zendesk MCP Server repository cloned successfully"
-        cd "$ZENDESK_INSTALL_DIR"
-    fi
-fi
-
-# Build using uv
-if [ -d "$ZENDESK_INSTALL_DIR" ]; then
-    log_message "Building Zendesk MCP Server using uv..."
-    cd "$ZENDESK_INSTALL_DIR"
-    uv build
-
-    if [ $? -ne 0 ]; then
-        log_message "Error: Failed to build Zendesk MCP Server using uv"
-    else
-        log_message "Zendesk MCP Server built successfully using uv"
-
-        # Create .env file with Zendesk credentials
-        log_message "Creating .env file with Zendesk credentials..."
-        cat > "$ZENDESK_ENV_FILE" << ENVEOF
+# Install uv-based MCP servers
+# Zendesk MCP Server
+zendesk_env_content=$(cat << EOF
 ZENDESK_EMAIL="$ZENDESK_EMAIL"
 ZENDESK_API_KEY="$ZENDESK_API_KEY"
 ZENDESK_SUBDOMAIN="$ZENDESK_SUBDOMAIN"
-ENVEOF
+EOF
+)
+install_uv_mcp_server "$ZENDESK_REPO" "$ZENDESK_INSTALL_DIR" "Zendesk" "$ZENDESK_ENV_FILE" "$zendesk_env_content"
 
-        log_message "Zendesk .env file created at $ZENDESK_ENV_FILE"
-    fi
-fi
-
-# Install Gmail MCP Server from GitHub using uv
-log_message "Installing Gmail MCP Server from GitHub using uv..."
-
-# Clone the repository
-if [ -d "$GSUITE_INSTALL_DIR" ]; then
-    log_message "Gmail MCP Server directory already exists, updating..."
-    cd "$GSUITE_INSTALL_DIR"
-    git pull
-else
-    log_message "Cloning Gmail MCP Server repository..."
-    git clone "$GSUITE_REPO" "$GSUITE_INSTALL_DIR"
-    if [ $? -ne 0 ]; then
-        log_message "Error: Failed to clone Gmail MCP Server repository"
-    else
-        log_message "Gmail MCP Server repository cloned successfully"
-        cd "$GSUITE_INSTALL_DIR"
-    fi
-fi
+# Gmail MCP Server
+install_uv_mcp_server "$GSUITE_REPO" "$GSUITE_INSTALL_DIR" "Gmail" "" ""
 
 # Create auth files if they don't exist
 log_message "Creating Gmail auth files if they don't exist..."
 touch "$GSUITE_AUTH_FILE"
 touch "$GSUITE_ACCOUNTS_FILE"
 
-# Build using uv
-if [ -d "$GSUITE_INSTALL_DIR" ]; then
-    log_message "Building Gmail MCP Server using uv..."
-    cd "$GSUITE_INSTALL_DIR"
-
-    # Add credentials to credentials.json if they exist
-    if [ -n "$GMAIL_CLIENT_ID" ] && [ -n "$GMAIL_CLIENT_SECRET" ]; then
-        log_message "Creating credentials.json with Gmail credentials..."
-        cat > "$GSUITE_INSTALL_DIR/credentials.json" << CREDEOF
+# Add credentials to credentials.json if they exist
+if [ -n "$GMAIL_CLIENT_ID" ] && [ -n "$GMAIL_CLIENT_SECRET" ]; then
+    log_message "Creating credentials.json with Gmail credentials..."
+    cat > "$GSUITE_INSTALL_DIR/credentials.json" << CREDEOF
 {
   "installed": {
     "client_id": "$GMAIL_CLIENT_ID",
@@ -760,97 +755,25 @@ if [ -d "$GSUITE_INSTALL_DIR" ]; then
   }
 }
 CREDEOF
-    fi
-
-    # Install dependencies using uv
-    uv build
-
-    if [ $? -ne 0 ]; then
-        log_message "Error: Failed to build Gmail MCP Server using uv"
-    else
-        log_message "Gmail MCP Server built successfully using uv"
-    fi
 fi
 
-# Install Atlassian MCP Server from GitHub using uv
-log_message "Installing Atlassian MCP Server from GitHub using uv..."
-
-# Clone the repository
-if [ -d "$ATLASSIAN_INSTALL_DIR" ]; then
-    log_message "Atlassian MCP Server directory already exists, updating..."
-    cd "$ATLASSIAN_INSTALL_DIR"
-    git pull
-else
-    log_message "Cloning Atlassian MCP Server repository..."
-    git clone "$ATLASSIAN_REPO" "$ATLASSIAN_INSTALL_DIR"
-    if [ $? -ne 0 ]; then
-        log_message "Error: Failed to clone Atlassian MCP Server repository"
-    else
-        log_message "Atlassian MCP Server repository cloned successfully"
-        cd "$ATLASSIAN_INSTALL_DIR"
-    fi
-fi
-
-# Build using uv
-if [ -d "$ATLASSIAN_INSTALL_DIR" ]; then
-    log_message "Building Atlassian MCP Server using uv..."
-    cd "$ATLASSIAN_INSTALL_DIR"
-    
-    # Create .env file with Atlassian credentials
-    log_message "Creating .env file with Atlassian credentials..."
-    cat > "$ATLASSIAN_ENV_FILE" << ATLASSIANENVEOF
+# Atlassian MCP Server
+atlassian_env_content=$(cat << EOF
 JIRA_URL="$JIRA_URL"
 JIRA_USERNAME="$JIRA_USERNAME"
 JIRA_TOKEN="$JIRA_TOKEN"
-ATLASSIANENVEOF
+EOF
+)
+install_uv_mcp_server "$ATLASSIAN_REPO" "$ATLASSIAN_INSTALL_DIR" "Atlassian" "$ATLASSIAN_ENV_FILE" "$atlassian_env_content"
 
-    log_message "Atlassian .env file created at $ATLASSIAN_ENV_FILE"
-    
-    # Install dependencies using uv
-    uv build
+# Sentry MCP Server
+sentry_env_content=$(cat << EOF
+SENTRY_AUTH_TOKEN="$SENTRY_AUTH_TOKEN"
+SENTRY_ORGANIZATION="$SENTRY_ORGANIZATION"
+EOF
+)
+install_uv_mcp_server "$SENTRY_REPO" "$SENTRY_INSTALL_DIR" "Sentry" "$SENTRY_ENV_FILE" "$sentry_env_content"
 
-    if [ $? -ne 0 ]; then
-        log_message "Error: Failed to build Atlassian MCP Server using uv"
-    else
-        log_message "Atlassian MCP Server built successfully using uv"
-    fi
-fi
-
-# Install Notion MCP Server from GitHub
-log_message "Installing Notion MCP Server from GitHub..."
-
-# Clone the repository
-if [ -d "$NOTION_INSTALL_DIR" ]; then
-    log_message "Notion MCP Server directory already exists, updating..."
-    cd "$NOTION_INSTALL_DIR"
-    git pull
-else
-    log_message "Cloning Notion MCP Server repository..."
-    git clone "$NOTION_REPO" "$NOTION_INSTALL_DIR"
-    if [ $? -ne 0 ]; then
-        log_message "Error: Failed to clone Notion MCP Server repository"
-    else
-        log_message "Notion MCP Server repository cloned successfully"
-        cd "$NOTION_INSTALL_DIR"
-    fi
-fi
-
-# Set up Notion MCP Server
-if [ -d "$NOTION_INSTALL_DIR" ]; then
-    log_message "Setting up Notion MCP Server..."
-    cd "$NOTION_INSTALL_DIR"
-    
-    # Create .env file with Notion token
-    log_message "Creating .env file with Notion token..."
-    cat > "$NOTION_ENV_FILE" << NOTIONENVEOF
-NOTION_API_TOKEN="$NOTION_TOKEN"
-NOTIONENVEOF
-
-    log_message "Notion .env file created at $NOTION_ENV_FILE"
-    
-    # Install dependencies (these will be handled by npx when running)
-    log_message "Notion MCP Server is ready to be run with npx"
-fi
 
 # Determine the absolute path to uv
 UV_PATH=$(which uv 2>/dev/null)
@@ -981,10 +904,12 @@ if [ "$CURSOR_INSTALLED" = true ]; then
       ]
     },
     "sentry": {
-      "command": "npx",
+      "command": "$UV_PATH",
       "args": [
-        "-y",
-        "$SENTRY_PACKAGE_NAME"
+        "run",
+        "--directory",
+        "$SENTRY_INSTALL_DIR",
+        "mcp-sentry"
       ],
       "env": {
         "SENTRY_AUTH_TOKEN": "$SENTRY_AUTH_TOKEN",
@@ -1054,6 +979,8 @@ else
     log_message "Cursor IDE: Not installed, engineering MCP configuration skipped"
 fi
 log_message "Credentials retrieved from 1Password: $([ "$OP_AVAILABLE" = true ] && echo 'Yes' || echo 'No')"
+log_message "Sentry MCP Server: $([ -d "$SENTRY_INSTALL_DIR" ] && echo "Installed at $SENTRY_INSTALL_DIR" || echo "Not found")"
+log_message "Sentry .env file: $([ -f "$SENTRY_ENV_FILE" ] && echo "Created at $SENTRY_ENV_FILE" || echo "Not created")"
 log_message "======================================================================="
 log_message "Installation complete!"
 if [ "$OP_AVAILABLE" = false ]; then
