@@ -543,13 +543,15 @@ if [ "$OP_AVAILABLE" = true ]; then
     # Get Sentry credentials
     SENTRY_AUTH_TOKEN=$(get_1password_item "Sentry" "auth_token")
     SENTRY_ORGANIZATION=$(get_1password_item "Sentry" "organization")
+    SENTRY_PROJECT=$(get_1password_item "Sentry" "project")
 
-    if [ -n "$SENTRY_AUTH_TOKEN" ] && [ -n "$SENTRY_ORGANIZATION" ]; then
+    if [ -n "$SENTRY_AUTH_TOKEN" ] && [ -n "$SENTRY_ORGANIZATION" ] && [ -n "$SENTRY_PROJECT" ]; then
         log_message "Retrieved Sentry credentials successfully"
     else
         log_message "Could not retrieve Sentry credentials. Empty placeholders will be used."
         SENTRY_AUTH_TOKEN=""
         SENTRY_ORGANIZATION=""
+        SENTRY_PROJECT=""
     fi
 
     # Get Datadog credentials
