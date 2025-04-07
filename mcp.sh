@@ -22,6 +22,11 @@ CLAUDE_DOWNLOAD_DIR="$HOME/Downloads"
 CLAUDE_APP_PATH="/Applications/Claude.app"
 CURSOR_APP_PATH="/Applications/Cursor.app"
 
+# Rootly MCP server configuration
+ROOTLY_REPO="https://github.com/Rootly-AI-Labs/Rootly-MCP-server.git"
+ROOTLY_INSTALL_DIR="$HOME/rootly-mcp-server"
+ROOTLY_ENV_FILE="$ROOTLY_INSTALL_DIR/.env"
+
 # Zendesk MCP server configuration
 ZENDESK_REPO="https://github.com/reminia/zendesk-mcp-server.git"
 ZENDESK_INSTALL_DIR="$HOME/zendesk-mcp-server"
@@ -125,6 +130,89 @@ get_1password_item() {
 
     echo "$result"
     return 0
+}
+
+# Function to fetch credentials for an MCP service from 1Password
+fetch_mcp_credentials() {
+    local service_name="$1"
+    shift
+    local all_retrieved=true
+
+    log_message "Retrieving credentials for $service_name from 1Password vault '$OP_VAULT'..."
+    
+    # Create result arrays
+    declare -a FIELDS=()
+    declare -a VALUES=()
+    
+    # Process each field
+    while [ "$#" -gt 0 ]; do
+        local field="$1"
+        log_message "Retrieving field '$field' for '$service_name'"
+        
+        local value=$(get_1password_item "$service_name" "$field")
+        
+        if [ -n "$value" ]; then
+            log_message "Retrieved $service_name $field successfully"
+        else
+            log_message "Could not retrieve $service_name $field. A placeholder will be used."
+            all_retrieved=false
+            value=""
+        fi
+        
+        # Store field and value in arrays
+        FIELDS+=("$field")
+        VALUES+=("$value")
+        
+        shift
+    done
+
+    if [ "$all_retrieved" = true ]; then
+        log_message "All $service_name credentials retrieved successfully"
+    else
+        log_message "Some $service_name credentials could not be retrieved. Placeholders will be used where needed."
+    fi
+
+    # Print fields and values as newline-separated output for easier parsing
+    for i in "${!FIELDS[@]}"; do
+        echo "${FIELDS[$i]}=${VALUES[$i]}"
+    done
+}
+
+# Parse credentials returned by fetch_mcp_credentials
+parse_credentials() {
+    local service=$1
+    local output=$(fetch_mcp_credentials "$service" "$@")
+    
+    # Process each line of output and convert to export statements
+    while IFS= read -r line; do
+        if [[ "$line" == *"="* ]]; then
+            local key="${line%%=*}"
+            local value="${line#*=}"
+            log_message "Setting ${service}_${key}=\"${value}\""
+            # Output an export statement for each credential
+            echo "export ${service}_${key}=\"${value}\""
+        fi
+    done <<< "$output"
+}
+
+# Securely set credential variables without using eval
+set_credential() {
+    local service="$1"
+    local field="$2"
+    local var_name="${service}_${field}"
+    
+    # Get the credential value directly
+    local value=$(get_1password_item "$service" "$field")
+    
+    # if [ -n "$value" ]; then
+    #     log_message "Retrieved $service $field successfully"
+    # else
+    #     log_message "Could not retrieve $service $field. A placeholder will be used."
+    #     value=""
+    # fi
+    
+    # Return the value so we can capture it in the parent scope
+    echo "$value"
 }
 
 # Function to install an npx-based MCP server
@@ -459,116 +547,54 @@ fi
 if [ "$OP_AVAILABLE" = true ]; then
     log_message "Retrieving credentials from 1Password vault '$OP_VAULT'..."
 
-    # Get Firecrawl API Key
-    FIRECRAWL_API_KEY=$(get_1password_item "Firecrawl" "api_key")
-    if [ -n "$FIRECRAWL_API_KEY" ]; then
-        log_message "Retrieved Firecrawl API key successfully"
-    else
-        log_message "Could not retrieve Firecrawl API key. A placeholder will be used in the configuration."
-        FIRECRAWL_API_KEY=""
-    fi
-
-    # Get Zendesk credentials
-    ZENDESK_EMAIL=$(get_1password_item "Zendesk" "username")
-    ZENDESK_API_KEY=$(get_1password_item "Zendesk" "api_token")
-    ZENDESK_SUBDOMAIN=$(get_1password_item "Zendesk" "subdomain")
-
-    if [ -n "$ZENDESK_API_KEY" ]; then
-        log_message "Retrieved Zendesk credentials successfully"
-    else
-        log_message "Could not retrieve Zendesk credentials. Placeholders will be used in the configuration."
-        ZENDESK_EMAIL="abc"
+    # Firecrawl credentials
+    FIRECRAWL_API_KEY=$(set_credential "Firecrawl" "api_key")
+    
+    # Rootly credentials
+    ROOTLY_API_TOKEN=$(set_credential "Rootly" "api_token")
+    
+    # Zendesk credentials
+    ZENDESK_EMAIL=$(set_credential "Zendesk" "username")
+    ZENDESK_API_KEY=$(set_credential "Zendesk" "api_token")
+    ZENDESK_SUBDOMAIN=$(set_credential "Zendesk" "subdomain")
+    
+    if [ -z "$ZENDESK_API_KEY" ]; then
+        log_message "Using default placeholder for Zendesk API key"
         ZENDESK_API_KEY="def"
-        ZENDESK_SUBDOMAIN="wealthsimple.zendesk.com"
     fi
 
-    # Get Slack credentials
-    SLACK_BOT_TOKEN=$(get_1password_item "Slack" "bot_token")
-    SLACK_TEAM_ID=$(get_1password_item "Slack" "team_id")
+    # Slack credentials
+    SLACK_BOT_TOKEN=$(set_credential "Slack" "bot_token")
+    SLACK_TEAM_ID=$(set_credential "Slack" "team_id")
 
-    if [ -n "$SLACK_BOT_TOKEN" ]; then
-        log_message "Retrieved Slack credentials successfully"
-    else
-        log_message "Could not retrieve Slack credentials. Placeholders will be used in the configuration."
-        SLACK_BOT_TOKEN=""
-        SLACK_TEAM_ID=""
-    fi
+    # Gmail credentials
+    GMAIL_CLIENT_ID=$(set_credential "Gmail" "client_id")
+    GMAIL_CLIENT_SECRET=$(set_credential "Gmail" "client_secret")
 
-    # Get Gmail credentials
-    GMAIL_CLIENT_ID=$(get_1password_item "Gmail" "client_id")
-    GMAIL_CLIENT_SECRET=$(get_1password_item "Gmail" "client_secret")
+    # Atlassian credentials
+    JIRA_URL=$(set_credential "Atlassian" "url")
+    JIRA_USERNAME=$(set_credential "Atlassian" "username")
+    JIRA_TOKEN=$(set_credential "Atlassian" "token")
 
-    if [ -n "$GMAIL_CLIENT_ID" ] && [ -n "$GMAIL_CLIENT_SECRET" ]; then
-        log_message "Retrieved Gmail credentials successfully"
-    else
-        log_message "Could not retrieve Gmail credentials. Empty placeholders will be used."
-        GMAIL_CLIENT_ID=""
-        GMAIL_CLIENT_SECRET=""
-    fi
+    # Notion credentials
+    NOTION_TOKEN=$(set_credential "Notion" "token")
 
-    # Get Atlassian credentials
-    JIRA_URL=$(get_1password_item "Atlassian" "url")
-    JIRA_USERNAME=$(get_1password_item "Atlassian" "username")
-    JIRA_TOKEN=$(get_1password_item "Atlassian" "token")
+    # Figma credentials
+    FIGMA_API_KEY=$(set_credential "Figma" "api_key")
 
-    if [ -n "$JIRA_URL" ] && [ -n "$JIRA_TOKEN" ]; then
-        log_message "Retrieved Atlassian credentials successfully"
-    else
-        log_message "Could not retrieve Atlassian credentials. Empty placeholders will be used."
-        JIRA_URL=""
-        JIRA_USERNAME=""
-        JIRA_TOKEN=""
-    fi
+    # Sentry credentials
+    SENTRY_AUTH_TOKEN=$(set_credential "Sentry" "auth_token")
+    SENTRY_ORGANIZATION=$(set_credential "Sentry" "organization")
+    SENTRY_PROJECT=$(set_credential "Sentry" "project")
 
-    # Get Notion credentials
-    NOTION_TOKEN=$(get_1password_item "Notion" "token")
-
-    if [ -n "$NOTION_TOKEN" ]; then
-        log_message "Retrieved Notion token successfully"
-    else
-        log_message "Could not retrieve Notion token. Empty placeholder will be used."
-        NOTION_TOKEN=""
-    fi
-
-    # Get Figma credentials
-    FIGMA_API_KEY=$(get_1password_item "Figma" "api_key")
-
-    if [ -n "$FIGMA_API_KEY" ]; then
-        log_message "Retrieved Figma API key successfully"
-    else
-        log_message "Could not retrieve Figma API key. Empty placeholder will be used."
-        FIGMA_API_KEY=""
-    fi
-
-    # Get Sentry credentials
-    SENTRY_AUTH_TOKEN=$(get_1password_item "Sentry" "auth_token")
-    SENTRY_ORGANIZATION=$(get_1password_item "Sentry" "organization")
-    SENTRY_PROJECT=$(get_1password_item "Sentry" "project")
-
-    if [ -n "$SENTRY_AUTH_TOKEN" ] && [ -n "$SENTRY_ORGANIZATION" ] && [ -n "$SENTRY_PROJECT" ]; then
-        log_message "Retrieved Sentry credentials successfully"
-    else
-        log_message "Could not retrieve Sentry credentials. Empty placeholders will be used."
-        SENTRY_AUTH_TOKEN=""
-        SENTRY_ORGANIZATION=""
-        SENTRY_PROJECT=""
-    fi
-
-    # Get Datadog credentials
-    DATADOG_API_KEY=$(get_1password_item "Datadog" "api_key")
-    DATADOG_APP_KEY=$(get_1password_item "Datadog" "app_key")
+    # Datadog credentials
+    DATADOG_API_KEY=$(set_credential "Datadog" "api_key")
+    DATADOG_APP_KEY=$(set_credential "Datadog" "app_key")
     DATADOG_SITE="datadoghq.com"
-
-    if [ -n "$DATADOG_API_KEY" ] && [ -n "$DATADOG_APP_KEY" ]; then
-        log_message "Retrieved Datadog credentials successfully"
-    else
-        log_message "Could not retrieve Datadog credentials. Empty placeholders will be used."
-        DATADOG_API_KEY=""
-        DATADOG_APP_KEY=""
-    fi
 else
     # Set placeholders if 1Password is not available
     FIRECRAWL_API_KEY=""
+    ROOTLY_API_TOKEN=""
     ZENDESK_EMAIL=""
     ZENDESK_API_KEY="def"
     ZENDESK_SUBDOMAIN=""
@@ -583,6 +609,7 @@ else
     FIGMA_API_KEY=""
     SENTRY_AUTH_TOKEN=""
     SENTRY_ORGANIZATION=""
+    SENTRY_PROJECT=""
     DATADOG_API_KEY=""
     DATADOG_APP_KEY=""
     DATADOG_SITE="datadoghq.com"  # Default site
@@ -714,6 +741,13 @@ install_npx_mcp_server "figma-developer-mcp" "Figma"
 install_npx_mcp_server "@suekou/mcp-notion-server" "Notion"
 
 # Install uv-based MCP servers
+# Rootly MCP Server
+rootly_env_content=$(cat << EOF
+ROOTLY_API_TOKEN="$ROOTLY_API_TOKEN"
+EOF
+)
+install_uv_mcp_server "$ROOTLY_REPO" "$ROOTLY_INSTALL_DIR" "Rootly" "$ROOTLY_ENV_FILE" "$rootly_env_content"
+
 # Zendesk MCP Server
 zendesk_env_content=$(cat << EOF
 ZENDESK_EMAIL="$ZENDESK_EMAIL"
@@ -803,6 +837,18 @@ cat > "$MCP_CONFIG_FILE" << EOF
         "FIRECRAWL_API_KEY": "$FIRECRAWL_API_KEY"
       }
     },
+    "rootly": {
+      "command": "$UV_PATH",
+      "args": [
+        "run",
+        "--directory",
+        "$ROOTLY_INSTALL_DIR",
+        "rootly-mcp-server"
+      ],
+      "env": {
+        "ROOTLY_API_TOKEN": "$ROOTLY_API_TOKEN"
+      }
+    },
     "filesystem": {
       "command": "npx",
       "args": [
@@ -869,6 +915,18 @@ if [ "$CURSOR_INSTALLED" = true ]; then
     cat > "$CURSOR_CONFIG_FILE" << EOF
 {
   "mcpServers": {
+    "rootly": {
+      "command": "$UV_PATH",
+      "args": [
+        "run",
+        "--directory",
+        "$ROOTLY_INSTALL_DIR",
+        "rootly-mcp-server"
+      ],
+      "env": {
+        "ROOTLY_API_TOKEN": "$ROOTLY_API_TOKEN"
+      }
+    },
     "atlassian": {
       "command": "$UV_PATH",
       "args": [
@@ -952,16 +1010,12 @@ log_message "uv: $(uv --version 2>/dev/null | head -n 1 || echo 'Not installed')
 log_message "1Password CLI: $(which op 2>/dev/null || echo 'Not installed')"
 log_message "Claude Desktop: $([ -d "$CLAUDE_APP_PATH" ] && echo "Installed at $CLAUDE_APP_PATH" || echo "Not installed")"
 log_message "Firecrawl MCP Server: $(npm list -g firecrawl-mcp | grep firecrawl-mcp || echo 'Not found')"
+log_message "Rootly MCP Server: $([ -d "$ROOTLY_INSTALL_DIR" ] && echo "Installed at $ROOTLY_INSTALL_DIR" || echo "Not found")"
+log_message "Rootly .env file: $([ -f "$ROOTLY_ENV_FILE" ] && echo "Created at $ROOTLY_ENV_FILE" || echo "Not created")"
 log_message "Filesystem MCP Server: $(npm list -g @modelcontextprotocol/server-filesystem | grep server-filesystem || echo 'Not found')"
 log_message "Slack MCP Server: $(npm list -g @modelcontextprotocol/server-slack | grep server-slack || echo 'Not found')"
 log_message "Zendesk MCP Server: $([ -d "$ZENDESK_INSTALL_DIR" ] && echo "Installed at $ZENDESK_INSTALL_DIR" || echo "Not found")"
 log_message "Zendesk .env file: $([ -f "$ZENDESK_ENV_FILE" ] && echo "Created at $ZENDESK_ENV_FILE" || echo "Not created")"
-log_message "Gmail MCP Server: $([ -d "$GSUITE_INSTALL_DIR" ] && echo "Installed at $GSUITE_INSTALL_DIR" || echo "Not found")"
-log_message "Gmail auth files: $([ -f "$GSUITE_AUTH_FILE" ] && echo "Created at $GSUITE_AUTH_FILE" || echo "Not created")"
-log_message "Atlassian MCP Server: $([ -d "$ATLASSIAN_INSTALL_DIR" ] && echo "Installed at $ATLASSIAN_INSTALL_DIR" || echo "Not found")"
-log_message "Atlassian .env file: $([ -f "$ATLASSIAN_ENV_FILE" ] && echo "Created at $ATLASSIAN_ENV_FILE" || echo "Not created")"
-log_message "Notion MCP Server: $([ -d "$NOTION_INSTALL_DIR" ] && echo "Installed at $NOTION_INSTALL_DIR" || echo "Not found")"
-log_message "Notion .env file: $([ -f "$NOTION_ENV_FILE" ] && echo "Created at $NOTION_ENV_FILE" || echo "Not created")"
 log_message "Claude Desktop config (productivity MCPs): $MCP_CONFIG_FILE"
 if [ "$CURSOR_INSTALLED" = true ]; then
     log_message "Cursor IDE: Installed at $CURSOR_APP_PATH"
@@ -973,6 +1027,76 @@ log_message "Credentials retrieved from 1Password: $([ "$OP_AVAILABLE" = true ] 
 log_message "Sentry MCP Server: $([ -d "$SENTRY_INSTALL_DIR" ] && echo "Installed at $SENTRY_INSTALL_DIR" || echo "Not found")"
 log_message "Sentry .env file: $([ -f "$SENTRY_ENV_FILE" ] && echo "Created at $SENTRY_ENV_FILE" || echo "Not created")"
 log_message "======================================================================="
+
+# ====== Check for Claude Code and add engineering MCP servers ======
+log_message "Checking for Claude Code (claude-code npm package)..."
+if npm list -g claude-code > /dev/null 2>&1; then
+    CLAUDE_CODE_INSTALLED=true
+    log_message "Claude Code is installed. Adding engineering MCP servers..."
+    
+    # Only proceed if we have a Cursor configuration to read from
+    if [ "$CURSOR_INSTALLED" = true ] && [ -f "$CURSOR_CONFIG_FILE" ]; then
+        # Add rootly MCP
+        if [ -d "$ROOTLY_INSTALL_DIR" ]; then
+            log_message "Adding Rootly MCP to Claude Code..."
+            claude mcp add rootly \
+                --command "$UV_PATH" \
+                --args "run,--directory,$ROOTLY_INSTALL_DIR,rootly-mcp-server" \
+                --env ROOTLY_API_TOKEN="$ROOTLY_API_TOKEN"
+        fi
+            
+        # Add atlassian MCP
+        if [ -d "$ATLASSIAN_INSTALL_DIR" ]; then
+            log_message "Adding Atlassian MCP to Claude Code..."
+            claude mcp add atlassian \
+                --command "$UV_PATH" \
+                --args "run,--directory,$ATLASSIAN_INSTALL_DIR,mcp-atlassian,--jira-url,$JIRA_URL,--jira-username,$JIRA_USERNAME,--jira-token,$JIRA_TOKEN"
+        fi
+        
+        # Add figma MCP
+        if npm list -g "$FIGMA_PACKAGE_NAME" > /dev/null 2>&1; then
+            log_message "Adding Figma MCP to Claude Code..."
+            claude mcp add figma \
+                --command "npx" \
+                --args "-y,$FIGMA_PACKAGE_NAME,--figma-api-key=$FIGMA_API_KEY,--stdio"
+        fi
+        
+        # Add sentry MCP
+        if [ -d "$SENTRY_INSTALL_DIR" ]; then
+            log_message "Adding Sentry MCP to Claude Code..."
+            claude mcp add sentry \
+                --command "$UV_PATH" \
+                --args "run,--directory,$SENTRY_INSTALL_DIR,mcp-sentry,--auth-token,$SENTRY_AUTH_TOKEN,--organization-slug,$SENTRY_ORGANIZATION,--project-slug,$SENTRY_PROJECT"
+        fi
+        
+        # Add datadog MCP
+        if npm list -g "$DATADOG_PACKAGE_NAME" > /dev/null 2>&1; then
+            log_message "Adding Datadog MCP to Claude Code..."
+            ENV_ARGS=""
+            if [ -n "$DATADOG_API_KEY" ]; then
+                ENV_ARGS="$ENV_ARGS --env DATADOG_API_KEY=$DATADOG_API_KEY"
+            fi
+            if [ -n "$DATADOG_APP_KEY" ]; then
+                ENV_ARGS="$ENV_ARGS --env DATADOG_APP_KEY=$DATADOG_APP_KEY"
+            fi
+            if [ -n "$DATADOG_SITE" ]; then
+                ENV_ARGS="$ENV_ARGS --env DATADOG_SITE=$DATADOG_SITE"
+            fi
+            
+            claude mcp add datadog \
+                --command "npx" \
+                --args "-y,$DATADOG_PACKAGE_NAME" \
+                $ENV_ARGS
+        fi
+        
+        log_message "Finished adding engineering MCP servers to Claude Code"
+    else
+        log_message "No Cursor configuration found. Skipping adding engineering MCPs to Claude Code."
+    fi
+else
+    log_message "Claude Code (claude-code npm package) is not installed. Skipping MCP server configuration for Claude Code."
+fi
+
 log_message "Installation complete!"
 if [ "$OP_AVAILABLE" = false ]; then
     log_message "NOTE: 1Password CLI was not available or properly set up. You will need to manually update the Claude Desktop configuration file with your API tokens and credentials."
@@ -985,6 +1109,10 @@ if [ -d "$CLAUDE_APP_PATH" ]; then
     log_message "After starting Claude Desktop, the MCP servers will be available."
 else
     log_message "Warning: Claude Desktop could not be installed or found. The MCP servers have been installed, but you'll need to manually install Claude Desktop from https://claude.ai/download"
+fi
+
+if [ "$CLAUDE_CODE_INSTALLED" = true ]; then
+    log_message "Claude Code is configured with engineering MCP servers. You can use them in your development workflow."
 fi
 
 exit 0
