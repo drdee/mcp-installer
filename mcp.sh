@@ -558,11 +558,6 @@ if [ "$OP_AVAILABLE" = true ]; then
     ZENDESK_API_KEY=$(set_credential "Zendesk" "api_token")
     ZENDESK_SUBDOMAIN=$(set_credential "Zendesk" "subdomain")
     
-    if [ -z "$ZENDESK_API_KEY" ]; then
-        log_message "Using default placeholder for Zendesk API key"
-        ZENDESK_API_KEY="def"
-    fi
-
     # Slack credentials
     SLACK_BOT_TOKEN=$(set_credential "Slack" "bot_token")
     SLACK_TEAM_ID=$(set_credential "Slack" "team_id")
