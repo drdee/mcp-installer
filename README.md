@@ -82,6 +82,7 @@ This section provides detailed instructions on how to obtain API tokens and cred
 | Notion | Manual via Integrations Portal | Integration Token | [Docs](https://developers.notion.com/docs/authorization) |
 | Sentry | Manual or API | Auth Token | [Docs](https://docs.sentry.io/api/auth/) |
 | Datadog | Manual or API | API Key & App Key | [Docs](https://docs.datadoghq.com/account_management/api-app-keys/) |
+| Rootly | Manual via Organization Settings | API Key | [Docs](https://docs.rootly.com/api-reference/overview) |
 
 ### Firecrawl
 
@@ -219,6 +220,17 @@ This section provides detailed instructions on how to obtain API tokens and cred
 10. Click "Create"
 11. Copy the generated Application key
 12. Add these to your 1Password vault with item name "Datadog" and field names "api_key" and "app_key"
+
+### Rootly
+
+1. Sign in to your Rootly account
+2. Click on the Organization dropdown in the top navigation
+3. Select "Organization Settings"
+4. Navigate to the "API Keys" section
+5. Click "Generate New API Key"
+6. Enter a descriptive name for your token (e.g., "Claude MCP")
+7. Copy the generated API key (it will only be shown once)
+8. Add the token to your 1Password vault with item name "Rootly" and field name "api_token"
 
 ### Alternative Storage for Tokens (Without 1Password)
 
