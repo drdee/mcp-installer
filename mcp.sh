@@ -113,6 +113,34 @@ check_1password_cli() {
     return 0
 }
 
+# Function to backup configuration file
+backup_config_file() {
+    local file_path="$1"
+    local backup_path="${file_path}.backup"
+    
+    # Check if the original file exists
+    if [ ! -f "$file_path" ]; then
+        log_message "Configuration file not found: $file_path"
+        return 1
+    fi
+    
+    # Check if backup already exists
+    if [ -f "$backup_path" ]; then
+        log_message "Backup already exists: $backup_path"
+        return 0
+    fi
+    
+    # Create backup
+    cp "$file_path" "$backup_path"
+    if [ $? -eq 0 ]; then
+        log_message "Successfully created backup: $backup_path"
+        return 0
+    else
+        log_message "Error creating backup of $file_path"
+        return 1
+    fi
+}
+
 # Function to safely retrieve an item from 1Password
 get_1password_item() {
     local item_name="$1"
@@ -816,6 +844,16 @@ else
     log_message "Cursor IDE is not installed. Skipping engineering MCP configuration."
 fi
 
+# ====== Backup configuration files if they exist ======
+log_message "Checking for existing configuration files to backup..."
+if [ -f "$MCP_CONFIG_FILE" ]; then
+    backup_config_file "$MCP_CONFIG_FILE"
+fi
+
+if [ "$CURSOR_INSTALLED" = true ] && [ -f "$CURSOR_CONFIG_FILE" ]; then
+    backup_config_file "$CURSOR_CONFIG_FILE"
+fi
+
 # ====== Create Claude Desktop configuration (Productivity MCPs) ======
 log_message "Creating Claude Desktop configuration for productivity MCP servers..."
 
@@ -1021,6 +1059,10 @@ fi
 log_message "Credentials retrieved from 1Password: $([ "$OP_AVAILABLE" = true ] && echo 'Yes' || echo 'No')"
 log_message "Sentry MCP Server: $([ -d "$SENTRY_INSTALL_DIR" ] && echo "Installed at $SENTRY_INSTALL_DIR" || echo "Not found")"
 log_message "Sentry .env file: $([ -f "$SENTRY_ENV_FILE" ] && echo "Created at $SENTRY_ENV_FILE" || echo "Not created")"
+log_message "Claude Desktop config backup: $([ -f "${MCP_CONFIG_FILE}.backup" ] && echo "Created at ${MCP_CONFIG_FILE}.backup" || echo "Not created")"
+if [ "$CURSOR_INSTALLED" = true ]; then
+    log_message "Cursor config backup: $([ -f "${CURSOR_CONFIG_FILE}.backup" ] && echo "Created at ${CURSOR_CONFIG_FILE}.backup" || echo "Not created")"
+fi
 log_message "======================================================================="
 
 # ====== Check for Claude Code and add engineering MCP servers ======

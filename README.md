@@ -57,6 +57,11 @@ Each MCP server requires specific credentials to be stored in the 1Password `MCP
    - Fields:
      - `token`: Your Notion API token
 
+7. **Rootly**
+   - Item name: `Rootly`
+   - Fields:
+     - `api_token`: Your Rootly API token
+
 ### Manual Configuration
 
 If you don't have 1Password or prefer to configure credentials manually:
